@@ -1,0 +1,1851 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BMS / HVAC :: ORBITAL-07</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --bg0: #14070c;
+      --bg1: #340d15;
+      --grid: rgba(219, 176, 165, 0.14);
+      --line: #7f4f59;
+      --ink: #efe5d7;
+      --mid: #9a8087;
+      --dim: #5e444c;
+      --accent: #e34387;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #e6e6e6;
+      padding: 16px;
+      font-family: 'Share Tech Mono', monospace;
+      color: var(--ink);
+    }
+
+    .phone {
+      width: min(356px, calc(100vw - 28px), calc((100dvh - 24px) * 410 / 832));
+      height: auto;
+      aspect-ratio: 410 / 832;
+      border-radius: 46px;
+      background: #0b0c12;
+      box-shadow: 0 0 0 2px #3b3f48, 0 0 0 7px #0b0d11, 0 20px 48px rgba(0, 0, 0, 0.42);
+      padding: 12px;
+    }
+
+    .screen {
+      position: relative;
+      height: 100%;
+      border-radius: 36px;
+      overflow: hidden;
+      border: 1px solid #56414a;
+      background:
+        linear-gradient(180deg, rgba(229, 67, 135, 0.08) 0 20%, transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg0));
+    }
+
+    .screen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 24px 24px;
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    .screen::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0 4px, rgba(0, 0, 0, 0.22) 4px 5px);
+      mix-blend-mode: multiply;
+      pointer-events: none;
+    }
+
+    .island {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 118px;
+      height: 28px;
+      border-radius: 99px;
+      background: #050507;
+      z-index: 5;
+    }
+
+    .ui {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      padding: 50px 8px 10px;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      gap: 6px;
+    }
+
+    .ticker {
+      display: none;
+      font-size: 12px;
+      letter-spacing: 0.17em;
+      text-transform: uppercase;
+      color: #c9ab9f;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .title {
+      border-bottom: 1px solid #8a5a65;
+      padding-bottom: 5px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 15px;
+      line-height: 1;
+      text-transform: uppercase;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      letter-spacing: 0.09em;
+      white-space: nowrap;
+    }
+
+    .title .left {
+      font-size: 15px;
+      color: #f0e4d6;
+    }
+
+    .title .right {
+      color: var(--accent);
+      font-size: 15px;
+      letter-spacing: 0.07em;
+    }
+
+    .dash {
+      display: grid;
+      grid-template-rows: repeat(3, minmax(0, 1.45fr)) minmax(0, 1.55fr);
+      gap: 10px;
+      padding: 0;
+      min-height: 0;
+      height: 100%;
+    }
+
+    .panel {
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      margin: 0;
+      padding: 10px 5px 9px;
+      display: grid;
+      grid-template-columns: 98px 16px minmax(0, 1fr) 13px;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 4px;
+      row-gap: 9px;
+      min-height: 0;
+      height: 100%;
+      align-items: start;
+    }
+
+    .glyph {
+      display: grid;
+      grid-template-columns: repeat(9, 9px);
+      grid-template-rows: repeat(10, 9px);
+      gap: 2px;
+      align-self: start;
+      margin-top: 2px;
+      justify-content: start;
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .px {
+      width: 9px;
+      height: 9px;
+      border: 1px solid transparent;
+      background: transparent;
+      position: relative;
+    }
+
+    .px.mid { background: var(--mid); border-color: #7c6368; }
+    .px.on { background: var(--ink); border-color: #c4b2a5; }
+    .px.low { background: #6f5961; border-color: #5c4a50; }
+    .px.out { background: transparent; border-color: #7f676f; }
+    .px.dot::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      margin: auto;
+      width: 2px;
+      height: 2px;
+      background: #efe4d6;
+      box-shadow: 0 0 1px rgba(239, 228, 214, 0.7);
+    }
+
+    .meta {
+      min-width: 0;
+      width: 100%;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 2px;
+      grid-column: 3;
+      grid-row: 1;
+      justify-self: stretch;
+      overflow: hidden;
+      padding: 1px 3px 1px 8px;
+    }
+
+    .meta-a {
+      padding-top: 0;
+    }
+
+    .panel-a-log {
+      margin-top: 0;
+    }
+
+    .side-block {
+      grid-column: 2;
+      grid-row: 1;
+      align-self: start;
+      display: grid;
+      grid-template-columns: repeat(3, 4px);
+      grid-auto-rows: 4px;
+      gap: 2px;
+      padding-top: 5px;
+    }
+
+    .side-px {
+      width: 4px;
+      height: 4px;
+      border: 1px solid #6d4f57;
+      background: transparent;
+    }
+
+    .side-px.mid {
+      background: #7b636a;
+      border-color: #846a73;
+    }
+
+    .side-px.on {
+      background: #efe4d6;
+      border-color: #c9b6a9;
+    }
+
+    .dots {
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      color: #d5b9ae;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .log {
+      font-size: 7.1px;
+      line-height: 1.1;
+      white-space: pre;
+      color: #ddc4b8;
+      text-transform: uppercase;
+      overflow: hidden;
+    }
+
+    .bars { display: grid; gap: 1px; }
+
+    .meta-bars {
+      margin-left: 0;
+      padding: 3px 11px 2px 8px;
+      grid-template-rows: auto auto;
+      align-content: start;
+      gap: 4px;
+    }
+
+    .meta-bars .bar-row {
+      grid-template-columns: 68px minmax(0, 1fr) 40px;
+      gap: 5px;
+      font-size: 11.5px;
+      line-height: 1;
+    }
+
+    .meta-bars .track {
+      width: 100%;
+      max-width: none;
+      justify-self: end;
+    }
+
+    .meta-bars .bar-row > span:first-child {
+      white-space: nowrap;
+      text-align: left;
+      padding-left: 1px;
+    }
+
+    .meta-bars .bar-row > span:last-child {
+      text-align: right;
+      justify-self: end;
+      width: 100%;
+      padding-right: 2px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 58px 1fr 36px;
+      align-items: center;
+      gap: 4px;
+      font-size: 9px;
+      color: #dec8bc;
+    }
+
+    .track {
+      height: 11px;
+      border: 1px solid #704953;
+      background: rgba(33, 14, 20, 0.62);
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 1px;
+      padding: 1px;
+    }
+
+    .track-bit {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      background: rgba(84, 56, 65, 0.55);
+      border: 1px solid #5f3d47;
+    }
+
+    .track-bit.on {
+      background: #ece1d3;
+      border-color: #c5b2a5;
+    }
+
+    .track-bit.mid {
+      background: #b8a093;
+      border-color: #8e7479;
+    }
+
+    .spark {
+      display: grid;
+      grid-template-columns: repeat(34, 1fr);
+      gap: 1px;
+      height: 13px;
+      align-items: end;
+      margin-top: 3px;
+    }
+
+    .spark i {
+      display: block;
+      width: 100%;
+      background: #ece1d3;
+      height: 20%;
+    }
+
+    .heat {
+      display: grid;
+      grid-template-columns: repeat(14, 9px);
+      grid-template-rows: repeat(6, 9px);
+      gap: 2px;
+      align-content: start;
+      margin-top: 2px;
+      background-image: radial-gradient(circle, rgba(228, 206, 193, 0.6) 1px, transparent 1px);
+      background-size: 11px 11px;
+      background-position: 2px 2px;
+    }
+
+    .checks {
+      display: grid;
+      align-content: start;
+      justify-items: end;
+      gap: 7px;
+      padding-top: 4px;
+      grid-column: 4;
+      grid-row: 1 / span 2;
+    }
+
+    .check {
+      width: 12px;
+      height: 12px;
+      border: 1px solid #b18892;
+    }
+
+    .check.on {
+      background: #f1e7d8;
+      box-shadow: 0 0 8px rgba(241, 231, 216, 0.35);
+    }
+
+    .foot {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      color: #d2b7ab;
+      text-transform: uppercase;
+      grid-column: 1 / 4;
+      grid-row: 2;
+      align-self: end;
+    }
+
+    .ids {
+      white-space: nowrap;
+      font-size: 9.5px;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      color: #d8bfb3;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .level {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 16px;
+      line-height: 1;
+      letter-spacing: 0.12em;
+      color: #f3e8da;
+      white-space: nowrap;
+      text-align: right;
+    }
+
+    .bottom {
+      border-top: 1px solid var(--line);
+      padding-top: 6px;
+      display: grid;
+      grid-template-columns: 0.92fr 1.58fr;
+      gap: 8px;
+      min-height: 0;
+      height: 100%;
+      align-items: stretch;
+    }
+
+    .left-matrix {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 5px;
+    }
+
+    .left-head {
+      font-size: 15px;
+      color: #d8c2b5;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      text-align: center;
+      letter-spacing: 0.1em;
+    }
+
+    .left-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 3px;
+      height: 100%;
+    }
+
+    .lane {
+      display: grid;
+      grid-template-rows: repeat(14, minmax(0, 1fr));
+      gap: 1px;
+    }
+
+    .lane-cell {
+      position: relative;
+      min-height: 5px;
+      border: 1px solid transparent;
+    }
+
+    .lane-cell::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 2px;
+      height: 2px;
+      transform: translate(-50%, -50%);
+      background: rgba(234, 219, 206, 0.85);
+    }
+
+    .lane-cell.mid { background: rgba(139, 108, 116, 0.45); }
+    .lane-cell.on { background: #efe4d6; border-color: #bfaea2; }
+    .lane-cell.on::before { background: #482c32; }
+
+    .barcode {
+      border-left: 1px solid #7b4f5a;
+      padding-left: 10px;
+      display: grid;
+      grid-template-columns: repeat(38, 1fr);
+      gap: 1px;
+      height: 100%;
+      align-self: stretch;
+    }
+
+    .barcode-col {
+      display: grid;
+      grid-template-rows: repeat(60, minmax(0, 1fr));
+      gap: 0;
+      height: 100%;
+    }
+
+    .barbit { background: transparent; min-height: 1px; }
+    .barbit.on { background: #efe4d6; }
+    .barbit.mid { background: rgba(160, 135, 126, 0.45); }
+
+    .boot {
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      padding: 34px 8px 9px;
+      background: #ddd8cc;
+      color: #17130f;
+      display: grid;
+      grid-template-rows: auto auto auto auto minmax(0, 1fr) minmax(0, 1fr);
+      gap: 5px;
+      transition: opacity 280ms ease;
+      overflow: hidden;
+    }
+
+    .boot.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .boot::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(70, 63, 52, 0.11) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(70, 63, 52, 0.11) 1px, transparent 1px);
+      background-size: 24px 24px;
+      pointer-events: none;
+    }
+
+    .boot > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .boot-topline {
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      color: #26211a;
+      opacity: 0.92;
+    }
+
+    .boot-headline {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 48px;
+      line-height: 0.84;
+      letter-spacing: 0.02em;
+      text-transform: lowercase;
+      color: #231d17;
+      font-family: 'VT323', monospace;
+      min-height: 36px;
+    }
+
+    .boot-main {
+      display: block;
+      align-items: start;
+      min-height: 0;
+      position: relative;
+    }
+
+    .boot-main::after {
+      display: none;
+    }
+
+    .boot-prop {
+      display: grid;
+      grid-template-columns: repeat(21, minmax(0, 1fr));
+      grid-template-rows: repeat(21, minmax(0, 1fr));
+      gap: 1px;
+      align-content: stretch;
+      justify-content: stretch;
+      min-height: 0;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+    }
+
+    .boot-px {
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      background: transparent;
+      border: 1px solid transparent;
+      position: relative;
+    }
+
+    .boot-px.dot::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 32%;
+      height: 32%;
+      min-width: 2px;
+      min-height: 2px;
+      transform: translate(-50%, -50%);
+      background: #1b1712;
+      opacity: 0.88;
+    }
+
+    .boot-px.on {
+      background: #353029;
+      border-color: #4a443b;
+    }
+
+    .boot-px.mid {
+      background: #6e665b;
+      border-color: #7f776b;
+    }
+
+    .boot-px.out {
+      background: transparent;
+      border-color: #847c70;
+    }
+
+    .boot-mini {
+      display: none;
+      grid-template-columns: repeat(10, 5px);
+      grid-auto-rows: 5px;
+      gap: 1px;
+      align-content: start;
+      min-height: 0;
+    }
+
+    .boot-mini-px {
+      width: 5px;
+      height: 5px;
+      background: #b7b0a2;
+      border: 1px solid #cac4b7;
+    }
+
+    .boot-mini-px.on {
+      background: #211c17;
+      border-color: #2d2721;
+    }
+
+    .boot-mini-px.mid {
+      background: #746b5f;
+      border-color: #8a8176;
+    }
+
+    .boot-label {
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: #2b261e;
+      text-transform: uppercase;
+    }
+
+    .boot-net {
+      grid-row: 5 / 7;
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      grid-template-rows: repeat(16, minmax(0, 1fr));
+      gap: 2px;
+      min-height: 0;
+      align-content: stretch;
+    }
+
+    .boot-node {
+      width: 8px;
+      height: 8px;
+      border: 1px solid #6e665a;
+      position: relative;
+      background: #e2ddd2;
+    }
+
+    .boot-node.on {
+      background: #15120f;
+      border-color: #15120f;
+    }
+
+    .boot-node.mid {
+      background: #94897a;
+      border-color: #8b8173;
+    }
+
+    .boot-node.link-r::after {
+      content: "";
+      position: absolute;
+      left: 100%;
+      top: 3px;
+      width: 3px;
+      height: 1px;
+      background: #6a6154;
+    }
+
+    .boot-node.link-d::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 100%;
+      width: 1px;
+      height: 3px;
+      background: #6a6154;
+    }
+
+    .boot-loading,
+    .boot-assembly,
+    .boot-words {
+      display: none;
+    }
+
+    .boot-loading {
+      grid-row: 3 / 7;
+      align-self: stretch;
+      justify-self: stretch;
+      text-align: center;
+      color: #231d17;
+      place-content: center;
+      gap: 8px;
+    }
+
+    .boot-loading-mark {
+      font-size: 20px;
+      line-height: 1;
+      letter-spacing: 0.14em;
+      min-height: 20px;
+      animation: bootBlink 620ms steps(1, end) infinite;
+    }
+
+    .boot-loading-text {
+      font-size: 50px;
+      font-family: 'VT323', monospace;
+      line-height: 0.85;
+      letter-spacing: 0.02em;
+      text-transform: lowercase;
+    }
+
+    .boot-loading-bars {
+      margin-top: 0;
+      font-size: 15px;
+      letter-spacing: 0.11em;
+      min-height: 15px;
+    }
+
+    .boot-assembly {
+      grid-row: 5;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      align-content: stretch;
+      min-height: 0;
+    }
+
+    .boot-asm-left,
+    .boot-asm-right {
+      display: grid;
+      gap: 1px;
+      align-content: stretch;
+      min-height: 0;
+    }
+
+    .boot-asm-left {
+      grid-template-columns: repeat(18, minmax(0, 1fr));
+      grid-auto-rows: minmax(0, 1fr);
+    }
+
+    .boot-asm-right {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      grid-auto-rows: minmax(0, 1fr);
+    }
+
+    .boot-asm-px {
+      width: 100%;
+      height: 100%;
+      background: #c8c1b4;
+      border: 1px solid #cbc4b8;
+    }
+
+    .boot-asm-px.on {
+      background: #15120f;
+      border-color: #15120f;
+    }
+
+    .boot-asm-px.mid {
+      background: #82786b;
+      border-color: #92897d;
+    }
+
+    .boot-words {
+      grid-row: 6;
+      font-size: 7.6px;
+      line-height: 0.98;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #1e1914;
+      white-space: pre;
+      overflow: hidden;
+      width: 100%;
+    }
+
+    .boot.phase-2 .boot-main,
+    .boot.phase-2 .boot-headline,
+    .boot.phase-2 .boot-label,
+    .boot.phase-2 .boot-net,
+    .boot.phase-2 .boot-assembly,
+    .boot.phase-2 .boot-words {
+      display: none;
+    }
+
+    .boot.phase-2 .boot-loading {
+      display: grid;
+    }
+
+    .boot.phase-3 .boot-net,
+    .boot.phase-4 .boot-net,
+    .boot.phase-5 .boot-net {
+      display: none;
+    }
+
+    .boot.phase-3 .boot-assembly,
+    .boot.phase-4 .boot-assembly,
+    .boot.phase-5 .boot-assembly {
+      display: grid;
+    }
+
+    .boot.phase-3 .boot-words,
+    .boot.phase-4 .boot-words,
+    .boot.phase-5 .boot-words {
+      display: block;
+    }
+
+    @keyframes bootBlink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0.45; }
+    }
+
+    .loading {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      padding: 38px 12px 12px;
+      background: conic-gradient(from 0deg, #ede6db 0 25%, #2a1519 0 50%, #ede6db 0 75%, #2a1519 0 100%) 0 0 / 24px 24px;
+      transition: opacity 320ms ease;
+      will-change: transform, clip-path, opacity;
+    }
+
+    .loading.hide { opacity: 0; pointer-events: none; }
+
+    .loading.wipe {
+      padding: 0;
+      background:
+        radial-gradient(circle, rgba(58, 31, 34, 0.7) 1px, transparent 1px) 0 0 / 24px 24px,
+        conic-gradient(from 90deg, #ece4d8 0 25%, #341218 0 50%, #ece4d8 0 75%, #341218 0 100%) 0 0 / 24px 24px,
+        linear-gradient(90deg, #e5dccf 0 48%, #e5dccf 48% 56%, rgba(229, 220, 207, 0.92) 56% 100%);
+      clip-path: polygon(
+        30% 0%, 100% 0%, 100% 100%, 30% 100%,
+        30% 96%, 28% 96%, 28% 92%, 26% 92%, 26% 88%, 24% 88%,
+        24% 84%, 22% 84%, 22% 80%, 20% 80%, 20% 76%, 18% 76%,
+        18% 72%, 16% 72%, 16% 68%, 14% 68%, 14% 64%, 12% 64%,
+        12% 60%, 10% 60%, 10% 56%, 9% 56%, 9% 52%, 8% 52%,
+        8% 48%, 7% 48%, 7% 44%, 8% 44%, 8% 40%, 9% 40%,
+        9% 36%, 10% 36%, 10% 32%, 12% 32%, 12% 28%, 13% 28%,
+        13% 24%, 15% 24%, 15% 20%, 17% 20%, 17% 16%, 19% 16%,
+        19% 12%, 22% 12%, 22% 8%, 25% 8%, 25% 4%, 30% 4%
+      );
+      animation: loadingWipe 1650ms steps(26, end) forwards;
+    }
+
+    .loading.wipe .card {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+
+    @keyframes loadingWipe {
+      from { transform: translateX(0%); }
+      to { transform: translateX(112%); }
+    }
+
+    .card {
+      height: 100%;
+      border-radius: 16px;
+      border: 1px solid #9c7f84;
+      background: #3a0c12;
+      padding: 8px;
+      display: grid;
+      grid-template-rows: auto auto 118px auto 86px minmax(118px, 1fr);
+      gap: 6px;
+      transition: opacity 160ms linear, transform 260ms ease;
+    }
+
+    .l-top {
+      font-family: 'VT323', monospace;
+      font-size: 62px;
+      line-height: 0.74;
+      color: #eadfce;
+      display: flex;
+      justify-content: space-between;
+      letter-spacing: 0.02em;
+    }
+
+    .l-head {
+      font-size: 15px;
+      color: #e8dacc;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .l-grid {
+      display: grid;
+      gap: 1px;
+      height: 114px;
+      grid-template-columns: repeat(24, 1fr);
+      grid-template-rows: repeat(14, 1fr);
+    }
+
+    .l-grid.small {
+      grid-template-columns: repeat(14, 1fr);
+      grid-template-rows: repeat(14, 1fr);
+      height: 114px;
+    }
+
+    .l-grid.wide {
+      grid-template-columns: repeat(24, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      height: 68px;
+    }
+
+    .lg { background: #5f3e45; }
+    .lg.on { background: #efe4d6; }
+    .lg.mid { background: #8c7075; }
+
+    .l-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .l-row.l-bottom {
+      height: 100%;
+    }
+
+    .l-row.l-bottom .l-grid.small {
+      height: 100%;
+      min-height: 118px;
+    }
+
+    #loadD {
+      position: relative;
+    }
+
+    #loadD::after {
+      content: 'SEARCH';
+      position: absolute;
+      left: 14px;
+      bottom: 10px;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: #e7dbcc;
+    }
+
+    .l-text {
+      font-size: 9px;
+      line-height: 1.14;
+      color: #dbc2b6;
+      text-transform: uppercase;
+      white-space: pre;
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 8px; }
+      .phone {
+        width: min(306px, calc(100vw - 16px), calc((100dvh - 92px) * 410 / 832));
+        aspect-ratio: 410 / 832;
+        border-radius: 40px;
+        padding: 10px;
+        box-shadow: 0 0 0 2px #3b3f48, 0 0 0 5px #0b0d11, 0 12px 24px rgba(0, 0, 0, 0.3);
+      }
+      .screen { border-radius: 30px; }
+      .island {
+        top: 7px;
+        width: 104px;
+        height: 24px;
+      }
+      .ui { padding: 44px 8px 8px; }
+    }
+
+    @media (max-width: 420px) {
+      .title { font-size: 14px; }
+      .title .left, .title .right { font-size: 14px; }
+      .level { font-size: 13px; }
+      .panel { grid-template-columns: 88px 13px minmax(0, 1fr) 12px; padding: 8px 2px 7px; }
+      .glyph { transform: scale(0.94); transform-origin: top left; }
+    }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <section class="screen">
+      <div class="island"></div>
+
+      <section class="boot phase-1" id="boot">
+        <div class="boot-topline" id="bootTopline">MONITOR · NOMINAL · INTERLINKED · HVAC · READY</div>
+        <div class="boot-headline" id="bootHeadline"><span>eve</span><span></span></div>
+        <div class="boot-main">
+          <div class="boot-prop" id="bootProp"></div>
+          <div class="boot-mini" id="bootMini"></div>
+        </div>
+        <div class="boot-label">SYNCHRONIZATION | RECLOCKING</div>
+        <div class="boot-net" id="bootNet"></div>
+        <div class="boot-loading" id="bootLoading">
+          <div class="boot-loading-mark" id="bootLoadingMark">::</div>
+          <div class="boot-loading-text" id="bootLoadingText">loading··</div>
+          <div class="boot-loading-bars" id="bootLoadingBars">||| |||||| |||</div>
+        </div>
+        <div class="boot-assembly" id="bootAssembly">
+          <div class="boot-asm-left" id="bootAsmLeft"></div>
+          <div class="boot-asm-right" id="bootAsmRight"></div>
+        </div>
+        <div class="boot-words" id="bootWords"></div>
+      </section>
+
+      <section class="loading" id="loading">
+        <article class="card">
+          <div class="l-head">[ONLINE] <span style="float:right;">X</span></div>
+          <div class="l-top" id="loadTitle">e1_Erro</div>
+          <div class="l-row">
+            <div class="l-grid" id="loadA"></div>
+            <div class="l-grid small" id="loadB"></div>
+          </div>
+          <div class="l-text" id="loadLog">IAQ CO2 TREND: [////////.............] 716PPM
+BIO SIGNATURE: [/////////////////////.] IDX 97 MOT 40%
+FILTER DP: [///////////////.........] 335PA REPLACE
+FINAL: HVAC NOMINAL // CONTINUOUS MONITORING</div>
+          <div class="l-grid wide" id="loadC"></div>
+          <div class="l-row l-bottom">
+            <div class="l-grid small" id="loadD"></div>
+            <div class="l-grid small" id="loadE"></div>
+          </div>
+        </article>
+      </section>
+
+      <div class="ui">
+        <div class="ticker" id="ticker">MONITOR * SUP 19.1C * RET 23.2C * READY</div>
+        <header class="title">
+          <span class="left">BMS / HVAC ::</span>
+          <span class="right">ORBITAL-07</span>
+        </header>
+        <div class="dash" id="dash"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const defs = [
+      { level: '04', a: '94238707', b: '22148733', phase: 0 },
+      { level: '07', a: '95694271', b: '90080439', phase: 1 },
+      { level: '03', a: '57117150', b: '19856692', phase: 2 }
+    ];
+
+    const GLYPH_COLS = 9;
+    const GLYPH_ROWS = 10;
+    const GLYPH_FRAME_COUNT = 12;
+    const GLYPH_VARIANTS = [
+      { cx: 4.02, cy: 4.58, dir: 1, speed: 1.00, phase: 0.0, curve: 0.22, spread: 1.00 },
+      { cx: 4.16, cy: 4.46, dir: 1, speed: 1.18, phase: 2.8, curve: 0.27, spread: 0.94 },
+      { cx: 3.88, cy: 4.72, dir: -1, speed: 0.86, phase: 6.1, curve: 0.19, spread: 1.06 }
+    ];
+
+    const logPool = [
+      'SENSOR CHECK 0X22ED [OK]',
+      'STATE: RUNNING CYCLE:68MS',
+      'DUCT PRESSURE: 209PA',
+      'POWER LOOP: [######....] 61%',
+      'NOTE: SYSTEM WITHIN LIMITS',
+      'FAN SPEED: 998 RPM STABLE',
+      'AIR QUALITY CO2: 806PPM',
+      'STATE: STARTUP CYCLE:127MS'
+    ];
+
+    const barDefs = [
+      { label: 'SUPPLY', v: 63, unit: '%' },
+      { label: 'TEMP', v: 20, unit: 'C' },
+      { label: 'FILTER', v: 72, unit: '%' },
+      { label: 'EXHAUST', v: 48, unit: '%' },
+      { label: 'AIRFLOW', v: 66, unit: '%' }
+    ];
+
+    const dash = document.getElementById('dash');
+    const ticker = document.getElementById('ticker');
+
+    function px(type = '') {
+      const el = document.createElement('span');
+      el.className = `px ${type}`.trim();
+      return el;
+    }
+
+    function setState(node, state) {
+      node.classList.remove('on', 'mid', 'low', 'out', 'dot');
+      if (state) node.classList.add(state);
+    }
+
+    function mkChecks() {
+      const root = document.createElement('div');
+      root.className = 'checks';
+      const list = [];
+      for (let i = 0; i < 5; i++) {
+        const c = document.createElement('span');
+        c.className = 'check';
+        root.append(c);
+        list.push(c);
+      }
+      return { root, list };
+    }
+
+    function mkSide(seed = 0) {
+      const root = document.createElement('div');
+      root.className = 'side-block';
+      const list = [];
+      for (let i = 0; i < 36; i++) {
+        const s = document.createElement('span');
+        s.className = 'side-px';
+        root.append(s);
+        list.push(s);
+      }
+      return { root, list, seed };
+    }
+
+    function paintSide(side, t) {
+      side.list.forEach((s, i) => {
+        s.classList.remove('on', 'mid');
+        const row = Math.floor(i / 3);
+        const col = i % 3;
+        const phase = row + Math.floor(t * 0.5);
+        if (col === 1) {
+          if (phase % 4 === 0 || phase % 5 === 0) s.classList.add('on');
+          else s.classList.add('mid');
+          return;
+        }
+        if ((phase + col) % 6 === 0) s.classList.add('on');
+        else if ((phase + row + col) % 2 === 0) s.classList.add('mid');
+      });
+    }
+
+    function angleDiff(a, b) {
+      let d = Math.abs(a - b) % (Math.PI * 2);
+      if (d > Math.PI) d = (Math.PI * 2) - d;
+      return d;
+    }
+
+    function mkGlyph(phase = 0, variant = 0) {
+      const root = document.createElement('div');
+      root.className = 'glyph';
+      const map = new Map();
+      const cfg = GLYPH_VARIANTS[variant % GLYPH_VARIANTS.length];
+
+      for (let y = 0; y < GLYPH_ROWS; y++) {
+        for (let x = 0; x < GLYPH_COLS; x++) {
+          const key = `${x}:${y}`;
+          const cell = px();
+          root.append(cell);
+          map.set(key, cell);
+        }
+      }
+
+      return {
+        root,
+        map,
+        allKeys: [...map.keys()],
+        acc: (phase * 4) + cfg.phase,
+        variant,
+        ...cfg
+      };
+    }
+
+    function renderGlyph(g) {
+      g.allKeys.forEach((k) => {
+        const c = g.map.get(k);
+        if (c) setState(c, '');
+      });
+
+      const TAU = Math.PI * 2;
+      const step = Math.floor(g.acc);
+      for (let y = 0; y < GLYPH_ROWS; y++) {
+        for (let x = 0; x < GLYPH_COLS; x++) {
+          const c = g.map.get(`${x}:${y}`);
+          if (!c) continue;
+
+          const dx = x - g.cx;
+          const dy = y - g.cy;
+          const r = Math.hypot(dx, dy);
+          if (r > 4.42) continue;
+
+          const theta = Math.atan2(dy, dx);
+          const rot = (g.acc / GLYPH_FRAME_COUNT) * TAU * g.dir;
+
+          let state = '';
+          if (r > 0.96 && r < 4.10 && ((x + y + step + g.variant) % 2 === 0)) state = 'dot';
+          if (r > 1.75 && r < 3.95 && ((x * 2 + y + step + g.variant) % 4 === 0)) state = 'out';
+          let bestBlade = Infinity;
+
+          for (let b = 0; b < 3; b++) {
+            const bladeA = rot + (b * TAU / 3);
+            const curvedA = bladeA + (g.curve * (r - 1.1));
+            const d = angleDiff(theta, curvedA);
+            if (d < bestBlade) bestBlade = d;
+
+            const bodyBand = (0.34 - r * 0.03) * g.spread;
+            const coreBand = (0.17 - r * 0.016) * g.spread;
+            if (r > 0.82 && r < 4.04 && d < bodyBand) {
+              if (d < coreBand || ((x + y * 2 + step + b) % 3 === 0)) state = 'on';
+              else state = 'mid';
+            }
+          }
+
+          if ((state === '' || state === 'dot') && r > 1.0 && r < 3.7) {
+            for (let b = 0; b < 3; b++) {
+              const betweenA = rot + ((b + 0.5) * TAU / 3) - (g.curve * 0.36 * (r - 0.9));
+              const d = angleDiff(theta, betweenA);
+              if (d < 0.10 && ((x * 3 + y * 5 + step + b + g.variant) % 2 === 0)) {
+                state = 'dot';
+                break;
+              }
+            }
+          }
+
+          if ((state === '' || state === 'dot') && r > 2.2 && r < 4.2 && bestBlade > (0.20 * g.spread) && bestBlade < (0.39 * g.spread)) {
+            if (((x + y + step + g.variant) % 2) === 0) state = 'out';
+          }
+
+          if ((state === '' || state === 'dot') && r < 1.08 && ((x + y + step + g.variant) % 2 === 0)) {
+            state = 'mid';
+          }
+
+          if (!state && r < 0.72 && ((x + y + step + g.variant) % 3 !== 1)) {
+            state = 'on';
+          }
+
+          if (state) {
+            setState(c, state);
+          }
+        }
+      }
+    }
+
+    function mkPanelA(def) {
+      const el = document.createElement('section');
+      el.className = 'panel';
+
+      const glyph = mkGlyph(def.phase, 0);
+      const side = mkSide(def.phase * 0.8);
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.classList.add('meta-a');
+
+      const dots = document.createElement('div');
+      dots.className = 'dots';
+      dots.textContent = '. 0 . . 0 . . 0 . . 0 . . 0 .';
+
+      const log = document.createElement('div');
+      log.className = 'log';
+      log.classList.add('panel-a-log');
+      log.textContent = logPool.map((line) => `. . ${line}`).join('\n');
+
+      const foot = document.createElement('div');
+      foot.className = 'foot';
+      foot.innerHTML = `<span class="ids">${def.a} | ${def.b}</span><span class="level">LEVEL ${def.level}</span>`;
+
+      meta.append(dots, log);
+      const checks = mkChecks();
+      el.append(glyph.root, side.root, meta, checks.root, foot);
+      return { el, glyph, side, checks: checks.list, log, dots };
+    }
+
+    function mkPanelB(def) {
+      const el = document.createElement('section');
+      el.className = 'panel';
+
+      const glyph = mkGlyph(def.phase, 1);
+      const side = mkSide((def.phase * 0.9) + 0.8);
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.classList.add('meta-bars');
+
+      const bars = document.createElement('div');
+      bars.className = 'bars';
+      const fills = [];
+
+      barDefs.forEach((s) => {
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+        const label = document.createElement('span');
+        label.textContent = `${s.label}:`;
+        const track = document.createElement('span');
+        track.className = 'track';
+        const bits = [];
+        for (let bi = 0; bi < 12; bi++) {
+          const bit = document.createElement('i');
+          bit.className = 'track-bit';
+          track.append(bit);
+          bits.push(bit);
+        }
+        const val = document.createElement('span');
+        val.textContent = `${s.v}${s.unit}`;
+        row.append(label, track, val);
+        bars.append(row);
+        const pctBase = s.unit === 'C'
+          ? ((s.v - 16) / (30 - 16)) * 100
+          : s.v;
+        const activeBase = Math.round(Math.max(0, Math.min(100, pctBase)) / 100 * bits.length);
+        bits.forEach((bit, idx) => bit.classList.toggle('on', idx < activeBase));
+        fills.push({
+          bits,
+          val,
+          base: s.v,
+          unit: s.unit,
+          min: s.unit === 'C' ? 16 : 25,
+          max: s.unit === 'C' ? 30 : 95,
+          last: s.v
+        });
+      });
+
+      const spark = document.createElement('div');
+      spark.className = 'spark';
+      const sb = [];
+      for (let i = 0; i < 34; i++) {
+        const b = document.createElement('i');
+        spark.append(b);
+        sb.push(b);
+      }
+
+      const foot = document.createElement('div');
+      foot.className = 'foot';
+      foot.innerHTML = `<span class="ids">${def.a} | ${def.b}</span><span class="level">LEVEL ${def.level}</span>`;
+
+      meta.append(bars, spark);
+      const checks = mkChecks();
+      el.append(glyph.root, side.root, meta, checks.root, foot);
+      return { el, glyph, side, checks: checks.list, fills, sb };
+    }
+
+    function mkPanelC(def) {
+      const el = document.createElement('section');
+      el.className = 'panel';
+
+      const glyph = mkGlyph(def.phase, 2);
+      const side = mkSide((def.phase * 1.1) + 1.6);
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+
+      const heat = document.createElement('div');
+      heat.className = 'heat';
+      const cells = [];
+      for (let i = 0; i < 84; i++) {
+        const c = px();
+        heat.append(c);
+        cells.push(c);
+      }
+
+      const foot = document.createElement('div');
+      foot.className = 'foot';
+      foot.innerHTML = `<span class="ids">${def.a} | ${def.b}</span><span class="level">LEVEL ${def.level}</span>`;
+
+      meta.append(heat);
+      const checks = mkChecks();
+      el.append(glyph.root, side.root, meta, checks.root, foot);
+      return { el, glyph, side, checks: checks.list, cells };
+    }
+
+    const p1 = mkPanelA(defs[0]);
+    const p2 = mkPanelB(defs[1]);
+    const p3 = mkPanelC(defs[2]);
+    dash.append(p1.el, p2.el, p3.el);
+
+    const bottom = document.createElement('section');
+    bottom.className = 'bottom';
+
+    const left = document.createElement('div');
+    left.className = 'left-matrix';
+    const head = document.createElement('div');
+    head.className = 'left-head';
+    const grid = document.createElement('div');
+    grid.className = 'left-grid';
+    const lanes = [];
+
+    for (let c = 0; c < 6; c++) {
+      const h = document.createElement('span');
+      h.textContent = c === 0 || c === 4 ? '0' : '.';
+      head.append(h);
+
+      const lane = document.createElement('div');
+      lane.className = 'lane';
+      const cells = [];
+      for (let r = 0; r < 14; r++) {
+        const x = document.createElement('span');
+        x.className = 'lane-cell';
+        lane.append(x);
+        cells.push(x);
+      }
+      grid.append(lane);
+      lanes.push({ h, cells, pos: (c * 3) % 14, dir: c % 2 ? -1 : 1 });
+    }
+
+    left.append(head, grid);
+
+    const barcode = document.createElement('div');
+    barcode.className = 'barcode';
+    const cols = [];
+
+    for (let c = 0; c < 38; c++) {
+      const col = document.createElement('div');
+      col.className = 'barcode-col';
+      const bits = [];
+      for (let r = 0; r < 60; r++) {
+        const b = document.createElement('span');
+        b.className = 'barbit';
+        col.append(b);
+        bits.push(b);
+      }
+      barcode.append(col);
+      const seed = c * 1.37 + 2;
+      cols.push({
+        bits,
+        seed
+      });
+    }
+
+    bottom.append(left, barcode);
+    dash.append(bottom);
+
+    function paintLane(l) {
+      l.cells.forEach((c, i) => {
+        c.classList.remove('on', 'mid');
+        if (i === l.pos) c.classList.add('on');
+        else if (i === l.pos - l.dir || i === l.pos - (2 * l.dir)) c.classList.add('mid');
+      });
+    }
+
+    function paintBarcode(t) {
+      cols.forEach((col, ci) => {
+        const rows = col.bits.length;
+        const top = Math.floor((Math.sin((ci * 0.53) + t * 0.03) * 0.5 + 0.5) * 8);
+        const bottom = rows - 1 - Math.floor((Math.cos((ci * 0.47) + t * 0.03) * 0.5 + 0.5) * 8);
+
+        // Larger holes around center, with per-column drift like in the reference.
+        const center = Math.floor((rows * 0.53) + Math.sin((ci * 0.78) + t * 0.06) * 4);
+        const centerGapLen = 6 + Math.floor((Math.sin((ci * 0.33) + t * 0.08) * 0.5 + 0.5) * 4);
+        const centerGapStart = center - Math.floor(centerGapLen * 0.6);
+        const centerGapEnd = center + Math.floor(centerGapLen * 0.4);
+        const upperGapStart = Math.floor((rows * 0.32) + Math.cos((ci * 0.95) + t * 0.05) * 3);
+        const upperGapLen = 2 + (ci % 3);
+
+        col.bits.forEach((b, ri) => {
+          b.classList.remove('on', 'mid');
+          const inBody = ri >= top && ri <= bottom;
+          const inCenterGap = ri >= centerGapStart && ri <= centerGapEnd && ((ci + Math.floor(t * 0.5)) % 3 !== 0);
+          const inUpperGap = ri >= upperGapStart && ri < upperGapStart + upperGapLen && ((ci + Math.floor(t * 0.3)) % 4 === 1);
+          if (inBody && !inCenterGap && !inUpperGap) b.classList.add('on');
+          else if (inBody && (ri === centerGapStart || ri === centerGapEnd) && (ci % 2 === 0)) b.classList.add('mid');
+        });
+      });
+    }
+
+    const tickerPool = [
+      'MONITOR * SUP 19.1C * RET 23.2C * READY',
+      'DMP 2% * SP 308PS * PUFIL 82% * SYS',
+      'PM2.5 19UG/M3 * FLOW 825M3/H * STABLE',
+      'UFD 327 * CELLS 1.02M * NOMINAL'
+    ];
+
+    let wave = 0;
+    let tix = 0;
+
+    function tick() {
+      wave += 1;
+
+      [p1.glyph, p2.glyph, p3.glyph].forEach((g) => {
+        g.acc += g.speed;
+        renderGlyph(g);
+      });
+
+      [p1.side, p2.side, p3.side].forEach((side, i) => paintSide(side, wave + (i * 2)));
+
+      [p1.checks, p2.checks, p3.checks].forEach((list, j) => {
+        list.forEach((c, i) => c.classList.toggle('on', Math.sin((wave * 0.42) + i + (j * 0.8)) > 0.5));
+      });
+
+      const shift = wave % logPool.length;
+      p1.log.textContent = logPool
+        .slice(shift)
+        .concat(logPool.slice(0, shift))
+        .map((line) => `. . ${line}`)
+        .join('\n');
+      p1.dots.textContent = Array.from({ length: 17 }, (_, i) => ((i + wave) % 4 === 1 ? '0' : '.')).join(' ');
+
+      p2.fills.forEach((f, i) => {
+        const ampA = f.unit === 'C' ? 2 : 7;
+        const ampB = f.unit === 'C' ? 1 : 3;
+        const drift = Math.round(
+          Math.sin((wave * 0.55) + (i * 1.13)) * ampA
+          + Math.cos((wave * 0.29) + (i * 0.37)) * ampB
+        );
+        let val = Math.max(f.min, Math.min(f.max, f.base + drift));
+        if (val === f.last) {
+          val = Math.max(f.min, Math.min(f.max, val + (((wave + i) % 2) ? 1 : -1)));
+        }
+        f.last = val;
+        const pct = f.unit === 'C' ? ((val - f.min) / (f.max - f.min)) * 100 : val;
+        const clampedPct = Math.max(0, Math.min(100, pct));
+        const active = Math.round((clampedPct / 100) * f.bits.length);
+        f.bits.forEach((bit, idx) => {
+          bit.classList.remove('on', 'mid');
+          if (idx < active) bit.classList.add('on');
+          else if (idx === active && active < f.bits.length && ((wave + i) % 2 === 0)) bit.classList.add('mid');
+        });
+        f.val.textContent = `${val}${f.unit}`;
+      });
+
+      p2.sb.forEach((b, i) => {
+        b.style.height = `${26 + ((Math.sin(wave * 0.19 + i * 0.41) + 1) * 0.5) * 42}%`;
+      });
+
+      const bins = [2,3,4,4,3,3,3,3,3,3,4,4,3,2];
+      for (let y = 0; y < 6; y++) {
+        for (let x = 0; x < 14; x++) {
+          const idx = y * 14 + x;
+          const c = p3.cells[idx];
+          c.classList.remove('on', 'mid', 'low');
+          const wobble = Math.round(Math.sin((wave * 0.12) + x * 0.8) * 0.5);
+          const h = Math.max(1, Math.min(5, bins[x] + wobble));
+          const rowFromBottom = 5 - y;
+          if (rowFromBottom < h) {
+            if (rowFromBottom === h - 1 && (x + wave) % 4 === 0) c.classList.add('on');
+            else c.classList.add('mid');
+          }
+        }
+      }
+
+      lanes.forEach((l, i) => {
+        const maxPos = l.cells.length - 1;
+        l.pos += l.dir;
+        if (l.pos >= maxPos) { l.pos = maxPos; l.dir = -1; }
+        if (l.pos <= 0) { l.pos = 0; l.dir = 1; }
+        l.h.textContent = (i === 0 || i === 4 || (wave + i) % 8 === 0) ? '0' : '.';
+        paintLane(l);
+      });
+
+      paintBarcode(wave);
+
+      if (wave % 8 === 0) tix = (tix + 1) % tickerPool.length;
+    }
+
+    // boot + loading
+    const boot = document.getElementById('boot');
+    const bootTopline = document.getElementById('bootTopline');
+    const bootHeadline = document.getElementById('bootHeadline');
+    const bootProp = document.getElementById('bootProp');
+    const bootMini = document.getElementById('bootMini');
+    const bootNet = document.getElementById('bootNet');
+    const bootAsmLeft = document.getElementById('bootAsmLeft');
+    const bootAsmRight = document.getElementById('bootAsmRight');
+    const bootWords = document.getElementById('bootWords');
+    const bootLoadingMark = document.getElementById('bootLoadingMark');
+    const bootLoadingText = document.getElementById('bootLoadingText');
+    const bootLoadingBars = document.getElementById('bootLoadingBars');
+
+    const bootPropCells = [];
+    for (let y = 0; y < 21; y++) {
+      for (let x = 0; x < 21; x++) {
+        const el = document.createElement('span');
+        el.className = 'boot-px';
+        bootProp.append(el);
+        bootPropCells.push({ el, x, y });
+      }
+    }
+
+    const bootMiniCells = [];
+    for (let y = 0; y < 14; y++) {
+      for (let x = 0; x < 10; x++) {
+        const el = document.createElement('span');
+        el.className = 'boot-mini-px';
+        bootMini.append(el);
+        bootMiniCells.push({ el, x, y });
+      }
+    }
+
+    const bootNetNodes = [];
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 16; x++) {
+        const el = document.createElement('span');
+        el.className = 'boot-node';
+        bootNet.append(el);
+        bootNetNodes.push({ el, x, y });
+      }
+    }
+
+    const bootAsmLeftCells = [];
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 18; x++) {
+        const el = document.createElement('span');
+        el.className = 'boot-asm-px';
+        bootAsmLeft.append(el);
+        bootAsmLeftCells.push({ el, x, y });
+      }
+    }
+
+    const bootAsmRightCells = [];
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 12; x++) {
+        const el = document.createElement('span');
+        el.className = 'boot-asm-px';
+        bootAsmRight.append(el);
+        bootAsmRightCells.push({ el, x, y });
+      }
+    }
+
+    const bootHeadlineFrames = ['eve', 've1', 'el_', '04_', '_04', 'Le1', 'Leu'];
+    const bootTicker = 'MONITOR · SUP 19.2°C · RET 23.2°C · NOMINAL · INTERLINKED · HVAC · ';
+    const bootLoadingFrames = [
+      '||| |||||| |||',
+      '|| ||||| |||||',
+      '|||| |||| ||||',
+      '||| |||||| |||',
+      '| ||||||| ||||'
+    ];
+    const bootWordsPool = [
+      'AABM', 'DYB', '412', 'BOU', 'JUY', 'EPHG', 'OEU', '105', 'FXX', 'RBR',
+      'SPRP', 'ULY', '127', 'MOS', 'QHA', 'JHRF', 'JFE', '557', 'OQL', 'AXQ',
+      'CGNJ', 'YPQ', '888', 'URJ', 'DPK', 'OGUL', 'IRP', '042', 'MHI', 'LXU',
+      'ZOWA', 'CUE', '222', 'ICQ', 'OEL', 'GEBE', 'LTL', '717', 'CWS', 'RBG',
+      'UTBW', 'NIT', '386', 'ETF', 'DHN', 'QDBP', 'ENU', '582', 'MRA', 'LBW',
+      'NUSP', 'IRA', '111', 'QZZ', 'UJS', 'QXOI', 'ULY', '966', 'MOS', 'CHN'
+    ];
+
+    function setBootPhase(p) {
+      for (let i = 1; i <= 5; i++) boot.classList.remove(`phase-${i}`);
+      boot.classList.add(`phase-${p}`);
+    }
+
+    function renderBootProp(t) {
+      const TAU = Math.PI * 2;
+      const rot = t * 0.21;
+      bootPropCells.forEach(({ el, x, y }) => {
+        el.classList.remove('on', 'mid', 'dot', 'out');
+        const dx = x - 10;
+        const dy = y - 10;
+        const r = Math.hypot(dx, dy);
+        if (r > 9.8) return;
+
+        const theta = Math.atan2(dy, dx);
+        let state = '';
+        if (r < 9.2 && ((x + y + t) % 2 === 0)) state = 'dot';
+        if (r > 6.9 && ((x * 2 + y + t) % 3 === 0)) state = 'out';
+
+        let hit = false;
+        for (let b = 0; b < 3; b++) {
+          const a = rot + (b * TAU / 3) + (0.12 * (r - 4.8));
+          const d = angleDiff(theta, a);
+          const band = 0.17 + (r * 0.01);
+          if (r > 2.0 && r < 8.9 && d < band) {
+            hit = true;
+            if (d < 0.085 || ((x + y + t + b) % 3 === 0)) state = 'on';
+            else state = 'mid';
+          }
+        }
+
+        if (!hit && r < 1.3 && ((x + y + t) % 2 === 0)) state = 'on';
+        if (state) el.classList.add(state);
+      });
+    }
+
+    function renderBootMini(t) {
+      bootMiniCells.forEach(({ el, x, y }) => {
+        el.classList.remove('on', 'mid');
+        const stripe = ((x + Math.floor(t * 0.7)) % 4 === 0);
+        const pulse = ((x * 5 + y * 3 + t) % 17 === 0);
+        if (pulse) el.classList.add('on');
+        else if (stripe || ((x + y + t) % 5 === 0)) el.classList.add('mid');
+      });
+    }
+
+    function renderBootNet(t) {
+      bootNetNodes.forEach(({ el, x, y }) => {
+        el.classList.remove('on', 'mid', 'link-r', 'link-d');
+        if (((x * 5 + y * 3 + t) % 13) === 0) el.classList.add('on');
+        else if (((x * 2 + y + t) % 5) === 0) el.classList.add('mid');
+        if (x < 15 && ((x + y + t) % 4 === 0)) el.classList.add('link-r');
+        if (y < 15 && ((x * 3 + y + t) % 6 === 0)) el.classList.add('link-d');
+      });
+    }
+
+    function renderBootAssembly(t, boost = 0) {
+      bootAsmLeftCells.forEach(({ el, x, y }) => {
+        el.classList.remove('on', 'mid');
+        const a = Math.sin((x * 0.31) + (t * 0.18));
+        const b = Math.cos((y * 0.43) - (t * 0.14));
+        const c = Math.sin(((x + y) * 0.21) + (t * 0.08));
+        const n = a + b + c * 0.55;
+        if (n > 0.36 - boost * 0.18) el.classList.add('on');
+        else if (n > -0.34 - boost * 0.24) el.classList.add('mid');
+      });
+      bootAsmRightCells.forEach(({ el, x, y }) => {
+        el.classList.remove('on', 'mid');
+        const a = Math.cos((x * 0.39) - (t * 0.15));
+        const b = Math.sin((y * 0.29) + (t * 0.13));
+        const c = Math.cos(((x + y * 2) * 0.17) - (t * 0.09));
+        const n = a + b + c * 0.58;
+        if (n > 0.28 - boost * 0.16) el.classList.add('on');
+        else if (n > -0.38 - boost * 0.24) el.classList.add('mid');
+      });
+    }
+
+    function renderBootWords(t) {
+      const lines = [];
+      for (let i = 0; i < 42; i++) {
+        const parts = [];
+        for (let j = 0; j < 20; j++) {
+          const idx = (t + i * 7 + j * 3) % bootWordsPool.length;
+          parts.push(bootWordsPool[idx]);
+        }
+        lines.push(parts.join('.'));
+      }
+      bootWords.textContent = lines.join('\n');
+    }
+
+    const loading = document.getElementById('loading');
+    const lt = document.getElementById('loadTitle');
+    const ll = document.getElementById('loadLog');
+    const loadEls = ['loadA', 'loadB', 'loadC', 'loadD', 'loadE'].map((id) => document.getElementById(id));
+
+    function fillLoad(el) {
+      const n = el.children.length || (el.classList.contains('wide') ? 24 * 8 : el.classList.contains('small') ? 14 * 14 : 24 * 14);
+      if (!el.children.length) {
+        for (let i = 0; i < n; i++) {
+          const c = document.createElement('span');
+          c.className = 'lg';
+          el.append(c);
+        }
+      }
+      const cols = el.classList.contains('wide') ? 24 : (el.classList.contains('small') ? 14 : 24);
+      const rows = el.classList.contains('wide') ? 8 : 14;
+      const cells = [...el.children];
+      cells.forEach((c) => c.classList.remove('on', 'mid'));
+
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = y * cols + x;
+          const c = cells[i];
+          if (!c) continue;
+          let mode = 0;
+          if (el.id === 'loadA') {
+            const strip = ((x + Math.floor(lc * 0.5)) % 4) === 0;
+            if (strip) mode = 2;
+            else if ((Math.sin((x * 0.9) + (y * 0.55) + (lc * 0.24)) + Math.cos((y * 1.1) - (lc * 0.18))) > 1.1) mode = 1;
+          } else if (el.id === 'loadB') {
+            const crest = 2 + Math.round((Math.sin((x * 0.7) + (lc * 0.22)) + 1) * 4.1);
+            const fromBottom = rows - 1 - y;
+            if (fromBottom <= crest) mode = (fromBottom === crest && ((x + lc) % 3 === 0)) ? 2 : 1;
+            if (((x * 7) + (y * 3) + lc) % 29 === 0) mode = 2;
+          } else if (el.id === 'loadC') {
+            const waveA = Math.sin((x * 0.38) + (lc * 0.21));
+            const waveB = Math.cos((y * 0.9) - (lc * 0.17));
+            if (waveA + waveB > 0.95) mode = 2;
+            else if (waveA + waveB > 0.25) mode = 1;
+          } else if (el.id === 'loadD') {
+            if (((x * 5) + (y * 3) + lc) % 17 === 0) mode = 1;
+            if (((x + y + lc) % 31) === 0) mode = 2;
+          } else if (el.id === 'loadE') {
+            const ridge = 2 + Math.round((Math.sin((x * 0.58) + (lc * 0.16)) + 1) * 4.3);
+            const fromBottom = rows - 1 - y;
+            if (fromBottom <= ridge) mode = (fromBottom === ridge && x % 2 === 0) ? 2 : 1;
+            if (((x * 2) + y + lc) % 23 === 0) mode = 2;
+          }
+          if (mode === 2) c.classList.add('on');
+          else if (mode === 1) c.classList.add('mid');
+        }
+      }
+    }
+
+    const loadTitles = ['e1_Erro', '04_Leve', '03_Leve', '02_Sync'];
+    let lc = 0;
+
+    function tickLoad() {
+      lc += 1;
+      lt.textContent = lc < 18 ? 'e1_Erro' : loadTitles[Math.floor((lc - 18) / 9) % loadTitles.length];
+      loadEls.forEach((el) => fillLoad(el));
+      if (lc % 5 === 0) {
+        ll.textContent = `IAQ CO2 TREND: [${'/'.repeat(6 + (lc % 9))}${'.'.repeat(17 - (lc % 9))}] ${706 + (lc % 18)}PPM\n`
+          + 'BIO SIGNATURE: [/////////////////////.] IDX 97 MOT 40%\n'
+          + 'FILTER DP: [///////////////.........] 335PA REPLACE\n'
+          + 'FINAL: INTERLINKED // PASSIVE MONITORING';
+      }
+    }
+
+    [p1.glyph, p2.glyph, p3.glyph].forEach(renderGlyph);
+    [p1.side, p2.side, p3.side].forEach((side, i) => paintSide(side, i * 2));
+    lanes.forEach(paintLane);
+    paintBarcode(1);
+
+    function startMaroonLoading() {
+      tickLoad();
+      const loadTimer = setInterval(tickLoad, 84);
+      setTimeout(() => {
+        clearInterval(loadTimer);
+        loading.classList.add('wipe');
+        setTimeout(() => {
+          loading.classList.add('hide');
+          setTimeout(() => { loading.style.display = 'none'; }, 340);
+        }, 1560);
+      }, 2400);
+    }
+
+    let bt = 0;
+    function tickBoot() {
+      bt += 1;
+      const off = bt % bootTicker.length;
+      bootTopline.textContent = `${bootTicker.slice(off)}${bootTicker.slice(0, off)}`;
+
+      let phase = 1;
+      if (bt >= 24 && bt < 42) phase = 2;
+      else if (bt >= 42 && bt < 70) phase = 3;
+      else if (bt >= 70 && bt < 98) phase = 4;
+      else if (bt >= 98) phase = 5;
+      setBootPhase(phase);
+
+      const head = bootHeadline.querySelector('span');
+      if (head) {
+        if (phase <= 2) head.textContent = bootHeadlineFrames[Math.floor(bt / 3) % bootHeadlineFrames.length];
+        else head.textContent = ['_04', '04_', '_Le', 'Le1', 'Leu'][Math.floor(bt / 4) % 5];
+      }
+
+      renderBootProp(bt);
+      renderBootMini(bt);
+      if (phase === 1) renderBootNet(bt);
+      if (phase >= 3) renderBootAssembly(bt, phase - 3);
+      if (phase >= 3) renderBootWords(bt + (phase * 3));
+
+      if (phase === 2) {
+        const dots = '.'.repeat((bt % 3) + 1);
+        bootLoadingText.textContent = `loading${dots}`;
+        bootLoadingBars.textContent = bootLoadingFrames[Math.floor(bt / 2) % bootLoadingFrames.length];
+        bootLoadingMark.textContent = (Math.floor(bt / 3) % 2 === 0) ? '::' : '·:';
+      }
+
+      if (bt >= 126) {
+        clearInterval(bootTimer);
+        boot.classList.add('hide');
+        setTimeout(() => {
+          boot.style.display = 'none';
+          startMaroonLoading();
+        }, 300);
+      }
+    }
+
+    const bootTimer = setInterval(tickBoot, 90);
+    tickBoot();
+
+    setInterval(tick, 120);
+  </script>
+</body>
+</html>
